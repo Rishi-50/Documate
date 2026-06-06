@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FileFLow.ai</title>
+</head>
+<body>
+
+    <h1>FileFLow.ai</h1>
+
+    <h2>Projects</h2>
+
+    {% for project in projects %}
+        <div>
+            <a href="/project/{{ project.id }}/">
+                <strong>{{ project.name }}</strong>
+            </a>    
+            <br>
+            Client: {{ project.client_name }}
+            <hr>
+        </div>
+    {% empty %}
+        <p>No projects found.</p>
+    {% endfor %}
+
+</body>
+</html>
