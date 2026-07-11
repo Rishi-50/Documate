@@ -1,18 +1,48 @@
 from django.shortcuts import render, get_object_or_404
 from .models import *
 from documents.models import *
+from .forms import ProjectForm
+from django.shortcuts import redirect
+from documents.models import Document
+from django.shortcuts import redirect
+from django.db.models import Q
 
 
 def home(request):
-    projects = Project.objects.all()
+
+    query = request.GET.get("q", "")
+
+    projects = Project.objects.all().prefetch_related(
+        "documents"
+    )   
+
+    if query:
+        projects = projects.filter(
+            Q(name__icontains=query) |
+            Q(client_name__icontains=query)
+        )
+
+    total_projects = Project.objects.count()
+
+    total_documents = Document.objects.count()
+
+    recent_documents = (
+        Document.objects
+        .select_related("project")
+        .order_by("-uploaded_at")[:5]
+    )   
 
     return render(
         request,
         "home.html",
         {
-            "projects": projects
+            "projects": projects,
+            "total_projects": total_projects,
+            "total_documents": total_documents,
+            "recent_documents": recent_documents,
+            "query": query,
         }
-    )
+)
 
 
 def project_detail(request, project_id):
@@ -46,3 +76,58 @@ def project_detail(request, project_id):
         }
     )
 
+
+def create_project(request):
+
+    if request.method == "POST":
+
+        form = ProjectForm(request.POST)
+
+        if form.is_valid():
+            form.save()
+            return redirect("home")
+
+    else:
+        form = ProjectForm()
+
+    return render(
+        request,
+        "create_project.html",
+        {
+            "form": form
+        }
+    )
+
+
+def delete_document(request, document_id):
+
+    document = get_object_or_404(
+        Document,
+        id=document_id
+    )
+
+    project_id = document.project.id
+
+    document.file.delete()
+
+    document.delete()
+
+    return redirect(
+        "project_detail",
+        project_id=project_id
+    )
+
+def document_detail(request, document_id):
+
+    document = get_object_or_404(
+        Document,
+        id=document_id
+    )
+
+    return render(
+        request,
+        "document_detail.html",
+        {
+            "document": document
+        }
+    )

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ document.filename }}
+{% endblock %}
+
+{% block content %}
+
+<a href="/project/{{ document.project.id }}/"
+   class="btn btn-sm btn-outline-secondary mb-3">
+
+    ← Back
+
+</a>
+
+<h3>
+    {{ document.filename }}
+</h3>
+
+<hr>
+
+<div class="row">
+
+    <div class="col-md-6">
+
+        <div class="card shadow-sm">
+
+            <div class="card-body">
+
+                <h5>Document Information</h5>
+
+                <p>
+                    <strong>Project:</strong>
+                    {{ document.project.name }}
+                </p>
+
+                <p>
+                    <strong>Status:</strong>
+                    {{ document.document_type }}
+                </p>
+
+                <p>
+                    <strong>Uploaded:</strong>
+                    {{ document.uploaded_at }}
+                </p>
+
+                <a
+                    href="/documents/{{ document.id }}/"
+                    target="_blank"
+                    class="btn btn-primary">
+
+                    View PDF
+
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-6">
+
+        <div class="card shadow-sm">
+
+            <div class="card-body">
+
+                <h5>AI Results</h5>
+
+                <p class="text-muted">
+                    OCR not processed yet.
+                </p>
+
+                <hr>
+
+                <h6>Metadata</h6>
+
+                <p class="text-muted">
+                    No metadata extracted.
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
