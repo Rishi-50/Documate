@@ -7,6 +7,14 @@ from documents.models import Document
 from django.shortcuts import redirect
 from django.db.models import Q
 
+from ai_processing.models import DocumentIntelligence
+from ai_processing.services.processing_manager import ProcessingManager
+from ai_processing.services.ocr_service import OCRService
+from ai_processing.services.intelligence_service import IntelligenceService
+from ai_processing.services.organization_service import OrganizationService
+from ai_processing.services.embedding_service import EmbeddingService
+
+
 
 def home(request):
 
@@ -64,6 +72,8 @@ def project_detail(request, project_id):
                 filename=uploaded_file.name,
                 file=uploaded_file
             )
+
+            
 
     documents = project.documents.all()
 
