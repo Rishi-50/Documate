@@ -12,6 +12,10 @@ from ai_processing.schemas.ocr_schema import (
     OCRWord,
 )
 
+import logging
+
+logging.getLogger("ppocr").setLevel(logging.WARNING)
+
 
 class PaddleOCREngine:
     """

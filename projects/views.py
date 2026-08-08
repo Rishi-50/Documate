@@ -13,6 +13,8 @@ from ai_processing.services.ocr_service import OCRService
 from ai_processing.services.intelligence_service import IntelligenceService
 from ai_processing.services.organization_service import OrganizationService
 from ai_processing.services.embedding_service import EmbeddingService
+from ai_processing.services.processing_manager import *
+
 
 
 
@@ -67,13 +69,22 @@ def project_detail(request, project_id):
 
         if uploaded_file:
 
-            Document.objects.create(
+            document = Document.objects.create(
                 project=project,
                 filename=uploaded_file.name,
                 file=uploaded_file
             )
 
-            
+            processing_manager = ProcessingManager(
+                pipeline=[
+                    OCRService(),
+                ]
+            )
+
+            processing_manager.process_document(
+                document=document,
+                intelligence=document.intelligence,
+            )   
 
     documents = project.documents.all()
 

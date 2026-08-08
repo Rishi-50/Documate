@@ -38,9 +38,10 @@ class OCRService(BaseAIService):
         """
 
         logger.info(
-            "Starting OCR for document %s",
+            "OCR started | document=%s | file=%s",
             document.id,
-        )
+            document.filename,
+        )    
 
         file_path = Path(document.file.path)
 
@@ -48,6 +49,12 @@ class OCRService(BaseAIService):
 
         if suffix == ".pdf":
             images = PDFParser.parse(file_path)
+            
+            logger.info(
+                "Document parsed | document=%s | pages=%s",
+                document.id,
+                len(images),
+            )
 
         elif suffix in [
             ".png",
@@ -69,6 +76,14 @@ class OCRService(BaseAIService):
             )
 
         ocr_result = self.engine.process(images)
+        
+        logger.info(
+            "OCR completed | document=%s | pages=%s | confidence=%.2f | time=%.2fs",
+            document.id,
+            ocr_result.page_count,
+            ocr_result.average_confidence,
+            ocr_result.processing_time,
+        )
 
         return ProcessingResult(
             stage=self.stage,
