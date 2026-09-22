@@ -14,8 +14,7 @@ from ai_processing.services.intelligence_service import IntelligenceService
 from ai_processing.services.organization_service import OrganizationService
 from ai_processing.services.embedding_service import EmbeddingService
 from ai_processing.services.processing_manager import *
-
-
+from ai_processing.services.intelligence_service import IntelligenceService
 
 
 def home(request):
@@ -78,6 +77,7 @@ def project_detail(request, project_id):
             processing_manager = ProcessingManager(
                 pipeline=[
                     OCRService(),
+                    IntelligenceService(),
                 ]
             )
 
