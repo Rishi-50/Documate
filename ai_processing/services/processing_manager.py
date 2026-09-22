@@ -94,12 +94,8 @@ class ProcessingManager:
                 intelligence.confidence_score = intelligence_result.confidence
 
                 intelligence.extracted_metadata = {
-                    "classification": (
-                        intelligence_result.classification.model_dump()
-                    ),
-                    "project": (
-                        intelligence_result.metadata.project.model_dump()
-                    ),
+                    "classification": (intelligence_result.classification.model_dump()),
+                    "project": (intelligence_result.metadata.project.model_dump()),
                     "drawing": (
                         intelligence_result.metadata.drawing.model_dump()
                         if intelligence_result.metadata.drawing
@@ -155,4 +151,4 @@ class ProcessingManager:
             document.id,
         )
 
-        return result   
+        return result
