@@ -78,6 +78,7 @@ def project_detail(request, project_id):
                 pipeline=[
                     OCRService(),
                     IntelligenceService(),
+                    OrganizationService(),
                 ]
             )
 
