@@ -8,22 +8,10 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessingManager:
-    """
-    Orchestrates the complete AI document processing pipeline.
-    """
-
     def __init__(self, pipeline):
-        """
-        Args:
-            pipeline: List of AI service instances.
-        """
         self.pipeline = pipeline
 
     def process_document(self, document, intelligence):
-        """
-        Execute all AI services sequentially.
-        """
-
         intelligence.processing_status = ProcessingStatus.RUNNING.value
         intelligence.save(update_fields=["processing_status"])
 
@@ -34,7 +22,6 @@ class ProcessingManager:
         )
 
         for service in self.pipeline:
-
             logger.info(
                 "Processing stage started | document=%s | stage=%s",
                 document.id,
@@ -63,14 +50,15 @@ class ProcessingManager:
                 execution_time=result.execution_time,
             )
 
+            # ---------------------------------------------------------
+            # OCR
+            # ---------------------------------------------------------
             if service.stage is ProcessingStage.OCR:
-
                 ocr = result.payload["ocr_result"]
 
                 intelligence.ocr_text = ocr.full_text
                 intelligence.ocr_pages = ocr.model_dump()
                 intelligence.confidence_score = ocr.average_confidence
-
                 intelligence.processing_stage = service.stage.value
                 intelligence.processing_status = ProcessingStatus.SUCCESS.value
 
@@ -84,6 +72,9 @@ class ProcessingManager:
                     ]
                 )
 
+            # ---------------------------------------------------------
+            # DOCUMENT INTELLIGENCE
+            # ---------------------------------------------------------
             if service.stage is ProcessingStage.INTELLIGENCE:
                 intelligence_result = result.payload["intelligence_result"]
 
@@ -120,8 +111,63 @@ class ProcessingManager:
                     ]
                 )
 
-            if result.status == ProcessingStatus.FAILED:
+            # ---------------------------------------------------------
+            # DOCUMENT ORGANIZATION
+            # ---------------------------------------------------------
+            if service.stage is ProcessingStage.ORGANIZATION:
+                organization_result = (
+                    result.payload.get("organization_result")
+                    if result.payload
+                    else None
+                )
 
+                logger.info(
+                    "Document organization completed | document=%s | status=%s",
+                    document.id,
+                    result.status.value,
+                )
+
+                if organization_result:
+                    logger.info(
+                        "Document organization result | "
+                        "document=%s | "
+                        "category=%s | "
+                        "target_directory=%s | "
+                        "target_filename=%s",
+                        document.id,
+                        organization_result.organization_category,
+                        organization_result.target_directory,
+                        organization_result.target_filename,
+                    )
+
+                final_path = (
+                    result.payload.get("final_path") if result.payload else None
+                )
+
+                if final_path:
+                    logger.info(
+                        "Document organized | document=%s | final_path=%s",
+                        document.id,
+                        final_path,
+                    )
+
+                if result.status == ProcessingStatus.SUCCESS:
+                    intelligence.processing_stage = service.stage.value
+                    intelligence.processing_status = ProcessingStatus.SUCCESS.value
+                    intelligence.last_error = ""
+
+                    intelligence.save(
+                        update_fields=[
+                            "processing_stage",
+                            "processing_status",
+                            "last_error",
+                        ]
+                    )
+
+            # ---------------------------------------------------------
+            # GENERIC FAILURE HANDLING
+            # ---------------------------------------------------------
+            if result.status == ProcessingStatus.FAILED:
                 intelligence.processing_stage = service.stage.value
                 intelligence.processing_status = ProcessingStatus.FAILED.value
                 intelligence.last_error = result.message
@@ -143,7 +189,11 @@ class ProcessingManager:
 
                 return result
 
+        # -------------------------------------------------------------
+        # PIPELINE COMPLETED
+        # -------------------------------------------------------------
         intelligence.processing_status = ProcessingStatus.SUCCESS.value
+
         intelligence.save(update_fields=["processing_status"])
 
         logger.info(
