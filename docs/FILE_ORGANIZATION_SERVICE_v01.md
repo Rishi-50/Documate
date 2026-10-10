@@ -525,6 +525,16 @@ Completed:
 The current implementation intentionally remains at a practical v0.1
 level.
 
+The local filesystem integration has since been tightened:
+
+- The document's Django `FileField` is updated to the organized relative path,
+  so document links continue to resolve after a move.
+- The selected portal project's name is used for the top-level folder, rather
+  than a project name inferred from document text.
+- Reorganizing a file already inside its destination folder is idempotent.
+- Destination paths are checked to prevent directory traversal outside the
+  configured organization root.
+
 Some documents may still be placed under:
 
 ``` text

@@ -123,3 +123,38 @@ class ProcessingLog(models.Model):
 
     def __str__(self):
         return f"{self.document} | {self.stage} | {self.status}"
+
+
+class DocumentEmbedding(models.Model):
+    """
+    Stores an OCR text chunk and its embedding for semantic retrieval.
+    """
+
+    document = models.ForeignKey(
+        "documents.Document",
+        on_delete=models.CASCADE,
+        related_name="embeddings",
+    )
+
+    chunk_index = models.PositiveIntegerField()
+
+    page_number = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+    )
+
+    text = models.TextField()
+
+    vector = models.JSONField()
+
+    class Meta:
+        ordering = ["document_id", "chunk_index"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["document", "chunk_index"],
+                name="unique_document_embedding_chunk",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Embedding {self.document_id}:{self.chunk_index}"

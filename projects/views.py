@@ -1,4 +1,10 @@
+import logging
+
+from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
+from django.views.decorators.http import require_POST
+from pydantic import ValidationError
+
 from .models import *
 from documents.models import *
 from .forms import ProjectForm
@@ -13,8 +19,12 @@ from ai_processing.services.ocr_service import OCRService
 from ai_processing.services.intelligence_service import IntelligenceService
 from ai_processing.services.organization_service import OrganizationService
 from ai_processing.services.embedding_service import EmbeddingService
+from ai_processing.schemas.assistant_schema import AssistantQuestion
+from ai_processing.services.assistant_service import AssistantService
 from ai_processing.services.processing_manager import *
 from ai_processing.services.intelligence_service import IntelligenceService
+
+logger = logging.getLogger(__name__)
 
 
 def home(request):
@@ -79,6 +89,7 @@ def project_detail(request, project_id):
                     OCRService(),
                     IntelligenceService(),
                     OrganizationService(),
+                    EmbeddingService(),
                 ]
             )
 
@@ -97,6 +108,49 @@ def project_detail(request, project_id):
             "documents": documents
         }
     )
+
+
+@require_POST
+def project_assistant(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    question = request.POST.get("question", "").strip()
+
+    if not question:
+        return JsonResponse(
+            {"error": "Please enter a question before sending."},
+            status=400,
+        )
+
+    if len(question) > 2000:
+        return JsonResponse(
+            {"error": "Keep your question to 2000 characters or fewer."},
+            status=400,
+        )
+
+    try:
+        assistant_question = AssistantQuestion(question=question)
+    except ValidationError:
+        return JsonResponse(
+            {"error": "The question is invalid. Please edit it and try again."},
+            status=400,
+        )
+
+    try:
+        answer = AssistantService().answer_question(
+            project=project,
+            question=assistant_question.question,
+        )
+    except Exception:
+        logger.exception(
+            "Project assistant failed | project=%s",
+            project.id,
+        )
+        return JsonResponse(
+            {"error": "The assistant is temporarily unavailable. Please try again."},
+            status=502,
+        )
+
+    return JsonResponse(answer.model_dump(mode="json"))
 
 
 def create_project(request):

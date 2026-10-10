@@ -1,51 +1,42 @@
 {% extends "base.html" %}
 
-{% block title %}
-New Project
-{% endblock %}
+{% block title %}Create project | Documate{% endblock %}
 
 {% block content %}
+<a href="{% url 'home' %}" class="back-link">← All projects</a>
 
-<a href="/" class="btn btn-sm btn-outline-secondary mb-3">
-    ← Back
-</a>
+<div class="row justify-content-center mt-3">
+    <div class="col-lg-7 col-xl-6">
+        <div class="mb-4">
+            <h1 class="page-title">Create a project</h1>
+            <p class="page-subtitle mb-0">
+                Set up a workspace for your project's documents.
+            </p>
+        </div>
 
-<h3 class="mb-4">
-    Create Project
-</h3>
-
-<form method="POST">
-
-    {% csrf_token %}
-
-    <div class="mb-3">
-
-        <label class="form-label">
-            Project Name
-        </label>
-
-        {{ form.name }}
-
+        <form method="POST" class="card">
+            {% csrf_token %}
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label" for="{{ form.name.id_for_label }}">Project name</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}
+                    <div class="text-danger small mt-1">{{ form.name.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="mb-4">
+                    <label class="form-label" for="{{ form.client_name.id_for_label }}">Client name</label>
+                    {{ form.client_name }}
+                    {% if form.client_name.errors %}
+                    <div class="text-danger small mt-1">{{ form.client_name.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{% url 'home' %}" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Create project</button>
+                </div>
+            </div>
+        </form>
     </div>
-
-    <div class="mb-3">
-
-        <label class="form-label">
-            Client Name
-        </label>
-
-        {{ form.client_name }}
-
-    </div>
-
-    <button
-        type="submit"
-        class="btn btn-primary">
-
-        Create Project
-
-    </button>
-
-</form>
-
+</div>
 {% endblock %}
