@@ -1,121 +1,231 @@
 {% extends "base.html" %}
 
-{% block title %}
-{{ project.name }}
-{% endblock %}
+{% block title %}{{ project.name }} | Documate{% endblock %}
 
 {% block content %}
+<a href="{% url 'home' %}" class="back-link">← All projects</a>
 
-<a href="/" class="btn btn-sm btn-outline-secondary mb-3">
-    ← Back
-</a>
-
-<h2>
-    {{ project.name }}
-</h2>
-
-<p class="text-muted">
-    {{ project.client_name }}
-</p>
-
-<hr>
-
-<h5 class="mb-3">
-    Upload Document
-</h5>
-
-<form method="POST"
-      enctype="multipart/form-data"
-      class="mb-4">
-
-    {% csrf_token %}
-
-    <div class="input-group">
-
-        <input
-            type="file"
-            name="document_file"
-            class="form-control"
-            required>
-
-        <button
-            type="submit"
-            class="btn btn-primary">
-
-            Upload
-
-        </button>
-
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mt-3 mb-4">
+    <div>
+        <h1 class="page-title">{{ project.name }}</h1>
+        <p class="page-subtitle mb-0">{{ project.client_name }}</p>
     </div>
+    <div class="text-muted small">
+        {{ documents.count }} document{{ documents.count|pluralize }}
+    </div>
+</div>
 
-</form>
-
-<h5 class="mb-3">
-    Documents
-</h5>
-
-{% for document in documents %}
-
-<div class="card mb-2 shadow-sm">
-
+<section class="card mb-4">
     <div class="card-body">
-
-        <div class="d-flex justify-content-between">
-
-            <div>
-
-                <div class="fw-semibold">
-                    {{ document.filename }}
-                </div>
-
-                <div class="small text-muted">
-
-                    Status:
-                    {{ document.document_type }}
-
-                    <br>
-
-                    Uploaded:
-                    {{ document.uploaded_at|date:"d M Y" }}
-
-                </div>
-
-            </div>
-
-            <div>
-
-                <a
-                    href="{{ document.file.url }}"
-                    target="_blank"
-                    class="btn btn-sm btn-outline-primary">
-
-                    View
-
-                </a>
-
-                <a
-                    href="/documents/{{ document.id }}/delete/"
-                    class="btn btn-sm btn-outline-danger"
-                    onclick="return confirm('Delete this document?');">
-
-                    Delete
-
-                </a>
-
-            </div>
-
+        <div class="mb-3">
+            <h2 class="section-title">Project documents</h2>
+            <p class="section-caption">Upload a file to extract and index its content.</p>
         </div>
 
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            <label for="document-file" class="visually-hidden">Choose a document</label>
+            <div class="input-group">
+                <input
+                    id="document-file"
+                    type="file"
+                    name="document_file"
+                    class="form-control"
+                    required>
+                <button type="submit" class="btn btn-primary">Upload document</button>
+            </div>
+            <div class="form-text">PDF or image file. Processing starts after upload.</div>
+        </form>
+    </div>
+</section>
+
+<section class="assistant-panel mb-4">
+    <div class="assistant-header">
+        <h2 class="section-title">Ask your project documents</h2>
+        <p class="section-caption">Answers are based on processed documents in this project.</p>
     </div>
 
-</div>
+    <div
+        id="assistant-messages"
+        class="assistant-messages"
+        aria-live="polite"
+        aria-label="Assistant conversation">
+        <p id="assistant-welcome" class="text-muted mb-0">
+            Ask about specifications, drawings, schedules, or project details.
+        </p>
+    </div>
 
-{% empty %}
+    <form
+        id="assistant-form"
+        class="assistant-composer"
+        method="POST"
+        action="{% url 'project_assistant' project.id %}">
+        {% csrf_token %}
+        <div class="input-group">
+            <label class="visually-hidden" for="assistant-question">Your question</label>
+            <input
+                id="assistant-question"
+                type="text"
+                name="question"
+                class="form-control"
+                maxlength="2000"
+                placeholder="Ask a question about this project..."
+                required>
+            <button id="assistant-submit" type="submit" class="btn btn-primary">
+                Ask
+            </button>
+        </div>
+        <div id="assistant-error" class="text-danger small mt-2" role="alert"></div>
+    </form>
+</section>
 
-<div class="alert alert-light border">
-    No documents uploaded yet.
-</div>
+<section class="card">
+    <div class="card-body p-0">
+        <div class="d-flex justify-content-between align-items-center gap-3 p-3 p-md-4">
+            <div>
+                <h2 class="section-title">Documents</h2>
+                <p class="section-caption">Files and processing status for this project.</p>
+            </div>
+        </div>
 
-{% endfor %}
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col" class="ps-3 ps-md-4">Document</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Processing</th>
+                        <th scope="col">Uploaded</th>
+                        <th scope="col" class="text-end pe-3 pe-md-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for document in documents %}
+                    <tr>
+                        <td class="ps-3 ps-md-4">
+                            <a class="document-link" href="{% url 'document_detail' document.id %}">
+                                {{ document.filename }}
+                            </a>
+                        </td>
+                        <td class="text-muted">{{ document.document_type|default:"—" }}</td>
+                        <td>
+                            <span class="badge badge-status">
+                                {{ document.intelligence.processing_status|default:"PENDING" }}
+                            </span>
+                        </td>
+                        <td class="text-muted">{{ document.uploaded_at|date:"d M Y" }}</td>
+                        <td class="text-end pe-3 pe-md-4">
+                            <a href="{{ document.file.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">
+                                Open file
+                            </a>
+                            <a
+                                href="{% url 'delete_document' document.id %}"
+                                class="btn btn-sm btn-outline-secondary"
+                                onclick="return confirm('Delete this document?');">
+                                Delete
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="py-5 text-center text-muted">
+                            No documents yet. Upload a project file to get started.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
 
+<script>
+    const assistantForm = document.getElementById("assistant-form");
+    const assistantMessages = document.getElementById("assistant-messages");
+    const assistantError = document.getElementById("assistant-error");
+    const assistantSubmit = document.getElementById("assistant-submit");
+    const assistantQuestion = document.getElementById("assistant-question");
+
+    function appendAssistantMessage(label, text, className) {
+        const message = document.createElement("div");
+        message.className = `assistant-message ${className}`;
+        const heading = document.createElement("span");
+        heading.className = "assistant-message-label";
+        heading.textContent = label;
+        const content = document.createElement("div");
+        content.textContent = text;
+        message.append(heading, content);
+        assistantMessages.appendChild(message);
+        assistantMessages.scrollTop = assistantMessages.scrollHeight;
+        return message;
+    }
+
+    assistantForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        assistantError.textContent = "";
+
+        const question = assistantQuestion.value.trim();
+        if (!question) {
+            return;
+        }
+
+        const formData = new FormData(assistantForm);
+        const welcome = document.getElementById("assistant-welcome");
+        if (welcome) {
+            welcome.remove();
+        }
+
+        appendAssistantMessage("You", question, "assistant-message-user");
+        const thinking = appendAssistantMessage("Documate", "Searching project documents...", "");
+        assistantSubmit.disabled = true;
+        assistantQuestion.disabled = true;
+
+        try {
+            const response = await fetch(assistantForm.action, {
+                method: "POST",
+                body: new URLSearchParams(formData),
+                headers: {"Accept": "application/json"}
+            });
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || "The assistant could not answer.");
+            }
+
+            thinking.querySelector("div").textContent = result.answer;
+
+            if (result.sources.length) {
+                const sources = document.createElement("div");
+                sources.className = "assistant-sources";
+                const label = document.createElement("div");
+                label.textContent = "Sources";
+                sources.appendChild(label);
+
+                const sourceList = document.createElement("ul");
+                sourceList.className = "mb-0 ps-3";
+                result.sources.forEach((source) => {
+                    const item = document.createElement("li");
+                    const link = document.createElement("a");
+                    link.href = source.url;
+                    link.textContent = source.page_number
+                        ? `${source.source_id}: ${source.filename} (page ${source.page_number})`
+                        : `${source.source_id}: ${source.filename}`;
+                    item.appendChild(link);
+                    sourceList.appendChild(item);
+                });
+                sources.appendChild(sourceList);
+                thinking.appendChild(sources);
+            }
+
+            assistantQuestion.value = "";
+        } catch (error) {
+            thinking.querySelector("div").textContent = error.message;
+            thinking.classList.add("border-danger");
+        } finally {
+            assistantSubmit.disabled = false;
+            assistantQuestion.disabled = false;
+            assistantQuestion.focus();
+        }
+    });
+</script>
 {% endblock %}

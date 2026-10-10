@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 from django.conf import settings
+from django.core.exceptions import SuspiciousFileOperation
 
 from ai_processing.engines.organization_engine import (
     OrganizationEngine,
@@ -91,10 +92,7 @@ class OrganizationService:
                 confidence=(intelligence.confidence_score or 0.0),
             )
 
-            project_name = intelligence_result.metadata.project.project_name
-
-            if not project_name:
-                project_name = "Unclassified_Project"
+            project_name = document.project.name
 
             organization_result = self.engine.organize(
                 intelligence=intelligence_result,
@@ -103,11 +101,21 @@ class OrganizationService:
             )
 
             source_path = Path(document.file.path)
+            storage_root = Path(document.file.storage.path("")).resolve()
+
+            if isinstance(self.organizer, FileOrganizer):
+                if not self.organizer.root_directory.is_relative_to(storage_root):
+                    raise SuspiciousFileOperation(
+                        "Organization root must be inside the document storage."
+                    )
 
             final_path = self.organizer.organize(
                 source_path=source_path,
                 organization_result=organization_result,
             )
+            relative_path = final_path.resolve().relative_to(storage_root)
+            document.file.name = relative_path.as_posix()
+            document.save(update_fields=["file"])
 
             logger.info(
                 "Document %s organized successfully: %s",

@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -452,6 +453,54 @@ def test_duplicate_file_gets_suffix(tmp_path):
     assert second_result.read_text() == "second"
 
 
+def test_reorganizing_an_already_organized_file_is_idempotent(tmp_path):
+    organizer = FileOrganizer(root_directory=tmp_path / "organized")
+    source_file = tmp_path / "drawing.pdf"
+    source_file.write_text("document")
+
+    organized_path = organizer.organize(
+        source_path=source_file,
+        organization_result=create_organization_result(),
+    )
+    repeated_path = organizer.organize(
+        source_path=organized_path,
+        organization_result=create_organization_result(),
+    )
+
+    assert repeated_path == organized_path
+    assert repeated_path.read_text() == "document"
+    assert len(list(repeated_path.parent.iterdir())) == 1
+
+
+def test_target_directory_cannot_escape_organization_root(tmp_path):
+    organizer = FileOrganizer(root_directory=tmp_path / "organized")
+    source_file = tmp_path / "drawing.pdf"
+    source_file.write_text("document")
+    unsafe_result = create_organization_result().model_copy(
+        update={"target_directory": "../outside"}
+    )
+
+    with pytest.raises(ValueError, match="inside its root"):
+        organizer.organize(source_file, unsafe_result)
+
+    assert source_file.exists()
+    assert not (tmp_path / "outside").exists()
+
+
+def test_target_filename_cannot_contain_a_path(tmp_path):
+    organizer = FileOrganizer(root_directory=tmp_path / "organized")
+    source_file = tmp_path / "drawing.pdf"
+    source_file.write_text("document")
+    unsafe_result = create_organization_result().model_copy(
+        update={"target_filename": "../outside.pdf"}
+    )
+
+    with pytest.raises(ValueError, match="single filename"):
+        organizer.organize(source_file, unsafe_result)
+
+    assert source_file.exists()
+
+
 def test_multiple_duplicates(tmp_path):
 
     organizer = FileOrganizer(root_directory=tmp_path / "organized")
@@ -499,8 +548,12 @@ def test_missing_source_file(tmp_path):
 
 class FakeDocumentFile:
 
-    def __init__(self, path):
+    def __init__(self, path, storage_root):
         self.path = str(path)
+        self.name = "uploads/drawing.pdf"
+        self.storage = SimpleNamespace(
+            path=lambda name: str(storage_root / name),
+        )
 
 
 class FakeDocument:
@@ -508,14 +561,20 @@ class FakeDocument:
     id = 1
     filename = "drawing.pdf"
 
-    def __init__(self, path):
-        self.file = FakeDocumentFile(path)
+    def __init__(self, path, storage_root):
+        self.project = SimpleNamespace(name="Project from database")
+        self.file = FakeDocumentFile(path, storage_root)
+        self.saved_fields = None
+
+    def save(self, update_fields=None):
+        self.saved_fields = update_fields
 
 
 class FakeEngine:
 
     def __init__(self):
         self.called = False
+        self.project_name = None
 
     def organize(
         self,
@@ -524,14 +583,16 @@ class FakeEngine:
         original_filename,
     ):
         self.called = True
+        self.project_name = project_name
 
         return create_organization_result(filename="A-101.pdf")
 
 
 class FakeOrganizer:
 
-    def __init__(self):
+    def __init__(self, storage_root):
         self.called = False
+        self.storage_root = storage_root
 
     def organize(
         self,
@@ -540,7 +601,14 @@ class FakeOrganizer:
     ):
         self.called = True
 
-        return Path("/organized/ABC_Tower/" "Architectural/Drawings/A-101.pdf")
+        return (
+            self.storage_root
+            / "organized"
+            / "ABC_Tower"
+            / "Architectural"
+            / "Drawings"
+            / "A-101.pdf"
+        )
 
 
 def test_service_connects_engine_and_organizer(tmp_path):
@@ -549,26 +617,40 @@ def test_service_connects_engine_and_organizer(tmp_path):
     source_file.write_text("test")
 
     engine = FakeEngine()
-    organizer = FakeOrganizer()
+    organizer = FakeOrganizer(tmp_path)
 
     service = OrganizationService(
         engine=engine,
         organizer=organizer,
     )
 
-    document = FakeDocument(source_file)
+    document = FakeDocument(source_file, tmp_path)
 
-    intelligence = create_drawing_intelligence()
+    intelligence = SimpleNamespace(
+        extracted_metadata={},
+        confidence_score=0.0,
+    )
 
     result = service.run(
         document=document,
         intelligence=intelligence,
-        project_name="ABC Tower",
     )
 
     assert engine.called is True
     assert organizer.called is True
+    assert engine.project_name == "Project from database"
+    assert document.file.name == (
+        "organized/ABC_Tower/Architectural/Drawings/A-101.pdf"
+    )
+    assert document.saved_fields == ["file"]
 
     assert result.payload["final_path"] == (
-        "/organized/ABC_Tower/" "Architectural/Drawings/A-101.pdf"
+        str(
+            tmp_path
+            / "organized"
+            / "ABC_Tower"
+            / "Architectural"
+            / "Drawings"
+            / "A-101.pdf"
+        )
     )

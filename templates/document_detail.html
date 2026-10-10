@@ -1,90 +1,111 @@
 {% extends "base.html" %}
 
-{% block title %}
-{{ document.filename }}
-{% endblock %}
+{% block title %}{{ document.filename }} | Documate{% endblock %}
 
 {% block content %}
-
-<a href="/project/{{ document.project.id }}/"
-   class="btn btn-sm btn-outline-secondary mb-3">
-
-    ← Back
-
+<a href="{% url 'project_detail' document.project.id %}" class="back-link">
+    ← {{ document.project.name }}
 </a>
 
-<h3>
-    {{ document.filename }}
-</h3>
-
-<hr>
-
-<div class="row">
-
-    <div class="col-md-6">
-
-        <div class="card shadow-sm">
-
-            <div class="card-body">
-
-                <h5>Document Information</h5>
-
-                <p>
-                    <strong>Project:</strong>
-                    {{ document.project.name }}
-                </p>
-
-                <p>
-                    <strong>Status:</strong>
-                    {{ document.document_type }}
-                </p>
-
-                <p>
-                    <strong>Uploaded:</strong>
-                    {{ document.uploaded_at }}
-                </p>
-
-                <a
-                    href="/documents/{{ document.id }}/"
-                    target="_blank"
-                    class="btn btn-primary">
-
-                    View PDF
-
-                </a>
-
-            </div>
-
-        </div>
-
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3 mt-3 mb-4">
+    <div>
+        <h1 class="page-title">{{ document.filename }}</h1>
+        <p class="page-subtitle mb-0">
+            {{ document.project.name }} <span aria-hidden="true">·</span>
+            Uploaded {{ document.uploaded_at|date:"d M Y" }}
+        </p>
     </div>
-
-    <div class="col-md-6">
-
-        <div class="card shadow-sm">
-
-            <div class="card-body">
-
-                <h5>AI Results</h5>
-
-                <p class="text-muted">
-                    OCR not processed yet.
-                </p>
-
-                <hr>
-
-                <h6>Metadata</h6>
-
-                <p class="text-muted">
-                    No metadata extracted.
-                </p>
-
-            </div>
-
-        </div>
-
-    </div>
-
+    <a href="{{ document.file.url }}" target="_blank" rel="noopener" class="btn btn-primary">
+        Open original file
+    </a>
 </div>
 
+{% with metadata=document.intelligence.extracted_metadata %}
+<div class="row g-3">
+    <div class="col-lg-5">
+        <section class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                    <div>
+                        <h2 class="section-title">Document information</h2>
+                        <p class="section-caption">Classification and processing results.</p>
+                    </div>
+                    <span class="badge badge-status">
+                        {{ document.intelligence.processing_status|default:"PENDING" }}
+                    </span>
+                </div>
+
+                <div class="metadata-row">
+                    <span class="metadata-label">Type</span>
+                    <span class="metadata-value">{{ document.document_type|default:"Not identified" }}</span>
+                </div>
+                {% if metadata.classification.category %}
+                <div class="metadata-row">
+                    <span class="metadata-label">Category</span>
+                    <span class="metadata-value">{{ metadata.classification.category }}</span>
+                </div>
+                {% endif %}
+                {% if metadata.drawing.drawing_number %}
+                <div class="metadata-row">
+                    <span class="metadata-label">Drawing number</span>
+                    <span class="metadata-value">{{ metadata.drawing.drawing_number }}</span>
+                </div>
+                {% endif %}
+                {% if metadata.drawing.revision %}
+                <div class="metadata-row">
+                    <span class="metadata-label">Revision</span>
+                    <span class="metadata-value">{{ metadata.drawing.revision }}</span>
+                </div>
+                {% endif %}
+
+                {% if metadata.summary %}
+                <div class="mt-4">
+                    <h3 class="section-title mb-2">Summary</h3>
+                    <p class="text-muted mb-0">{{ metadata.summary }}</p>
+                </div>
+                {% endif %}
+
+                {% if metadata.keywords %}
+                <div class="mt-4">
+                    <h3 class="section-title mb-2">Keywords</h3>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for keyword in metadata.keywords %}
+                        <span class="badge text-bg-light border fw-normal">{{ keyword }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if document.intelligence.last_error %}
+                <div class="alert alert-danger mt-3 mb-0 py-2 small" role="alert">
+                    {{ document.intelligence.last_error }}
+                </div>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+
+    <div class="col-lg-7">
+        <section class="card h-100">
+            <div class="card-body">
+                <h2 class="section-title">Extracted text</h2>
+                <p class="section-caption mb-3">OCR text used for project search and answers.</p>
+
+                {% if document.intelligence.ocr_text %}
+                <details>
+                    <summary class="btn btn-sm btn-outline-secondary mb-3">
+                        Show extracted text
+                    </summary>
+                    <div class="document-preview">{{ document.intelligence.ocr_text }}</div>
+                </details>
+                {% else %}
+                <div class="py-4 text-center text-muted">
+                    Text has not been extracted from this document yet.
+                </div>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+</div>
+{% endwith %}
 {% endblock %}

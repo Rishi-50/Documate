@@ -13,7 +13,7 @@ class FileOrganizer:
     """
 
     def __init__(self, root_directory: str | Path):
-        self.root_directory = Path(root_directory)
+        self.root_directory = Path(root_directory).resolve()
 
     def organize(
         self,
@@ -37,15 +37,42 @@ class FileOrganizer:
         if not source_path.exists():
             raise FileNotFoundError(f"Source file does not exist: {source_path}")
 
-        target_directory = self.root_directory / organization_result.target_directory
-  
+        relative_directory = Path(organization_result.target_directory)
+        if (
+            not organization_result.target_directory
+            or relative_directory.is_absolute()
+            or ".." in relative_directory.parts
+        ):
+            raise ValueError("Organization directory must stay inside its root.")
+
+        target_directory = self.root_directory / relative_directory
+        if not target_directory.resolve().is_relative_to(self.root_directory):
+            raise ValueError("Organization directory must stay inside its root.")
+
         target_directory.mkdir(
             parents=True,
             exist_ok=True,
         )
 
-        target_path = target_directory / organization_result.target_filename
-   
+        target_directory = target_directory.resolve()
+        if not target_directory.is_relative_to(self.root_directory):
+            raise ValueError("Organization directory must stay inside its root.")
+
+        filename = organization_result.target_filename
+        if (
+            not filename
+            or filename in {".", ".."}
+            or "/" in filename
+            or "\\" in filename
+        ):
+            raise ValueError("Organization filename must be a single filename.")
+
+        target_path = target_directory / filename
+        source_path = source_path.resolve()
+
+        if source_path.parent == target_directory:
+            return source_path
+
         target_path = self._get_available_path(target_path)
 
         shutil.move(
